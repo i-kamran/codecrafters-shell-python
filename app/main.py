@@ -1,17 +1,66 @@
 import sys
+from collections.abc import Callable
+
+CommandFunc = Callable[[list[str]], str]
+COMMANDS: dict[str, CommandFunc] = {}
+
+
+def register_command(name: str) -> Callable[[CommandFunc], CommandFunc]:
+    def wrapper(func: CommandFunc) -> CommandFunc:
+        COMMANDS[name] = func
+        return func
+
+    return wrapper
+
+
+@register_command("echo")
+def echo(args: list[str]) -> str:
+    return " ".join(args) + "\n"
+
+
+@register_command("type")
+def type_cmd(args: list[str]) -> str:
+    lines = []
+    for arg in args:
+        if arg in COMMANDS:
+            lines.append(f"{arg} is a shell builtin")
+        else:
+            lines.append(f"{arg}: not found")
+
+    return "\n".join(lines) + "\n"
+
+
+class ExitShell(Exception):
+    """Exception to signal the shell should close."""
+
+    pass
+
+
+@register_command("exit")
+def exit_cmd(args: list[str]) -> str:
+    raise ExitShell()
 
 
 def main():
     while True:
         sys.stdout.write("$ ")
-        user_input = input().lower()
+        sys.stdout.flush()
+
+        line = sys.stdin.readline()
+
+        user_input = line.strip()
+        if not user_input:
+            continue
+
         command, args = parse_command(user_input)
-        if command == "exit":
+
+        try:
+            if handler := COMMANDS.get(command):
+                sys.stdout.write(handler(args))
+            else:
+                sys.stdout.write(f"{command}: command not found\n")
+        except ExitShell:
             break
-        elif command == "echo":
-            sys.stdout.write(" ".join(args) + "\n")
-        else:
-            sys.stdout.write(f"{command}: command not found\n")
 
 
 def parse_command(arg: str) -> tuple[str, list[str]]:
