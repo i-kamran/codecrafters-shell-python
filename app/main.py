@@ -1,3 +1,4 @@
+import os
 import sys
 from collections.abc import Callable
 
@@ -18,12 +19,34 @@ def echo(args: list[str]) -> str:
     return " ".join(args) + "\n"
 
 
+def test():
+    # os.access(path, os.X_OK)
+
+    path_env = os.environ.get("PATH", "")
+
+    # Split it into a list of directories
+    directories = path_env.split(":")
+    for dir in directories:
+        print(dir)
+
+
 @register_command("type")
 def type_cmd(args: list[str]) -> str:
+    if not args:
+        return ""
     lines = []
+    path_env = os.environ.get("PATH", "")
+    paths = path_env.split(os.pathsep)
+
     for arg in args:
         if arg in COMMANDS:
             lines.append(f"{arg} is a shell builtin")
+            continue
+        for directory in paths:
+            full_path = os.path.join(directory, arg)
+            if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
+                lines.append(f"{arg} is {full_path}")
+                break 
         else:
             lines.append(f"{arg}: not found")
 
@@ -63,6 +86,7 @@ def main():
             break
 
 
+# Get the PATH string from the environment
 def parse_command(arg: str) -> tuple[str, list[str]]:
     args = arg.split()
     command = args.pop(0)
