@@ -20,17 +20,6 @@ def echo(args: list[str]) -> str:
     return " ".join(args) + "\n"
 
 
-def test():
-    # os.access(path, os.X_OK)
-
-    path_env = os.environ.get("PATH", "")
-
-    # Split it into a list of directories
-    directories = path_env.split(":")
-    for dir in directories:
-        print(dir)
-
-
 @register_command("type")
 def type_cmd(args: list[str]) -> str:
     if not args:
@@ -49,10 +38,37 @@ def type_cmd(args: list[str]) -> str:
     return "\n".join(lines) + "\n"
 
 
+@register_command("pwd")
+def pwd(args: list[str]) -> str:
+    return os.getcwd() + "\n"
+
+
+@register_command("cd")
+def cd(args: list[str]) -> str:
+    if len(args) > 1:
+        return f"cd: string not in pwd: {args[0]}\n"
+    target_dir = args[0] if args else os.path.expanduser("~")
+    if target_dir.startswith("~"): 
+        target_dir = os.path.expanduser(target_dir)
+        
+    try:
+        os.chdir(target_dir)
+        return ""
+    except FileNotFoundError:
+        return f"cd: {target_dir}: No such file or directory\n"
+    except PermissionError:
+        return f"cd: {target_dir}: Permission denied\n"
+
+
 class ExitShell(Exception):
     """Exception to signal the shell should close."""
 
     pass
+
+
+@register_command("exit")
+def exit_cmd(args: list[str]) -> str:
+    raise ExitShell()
 
 
 # --- Helper functions --------------------------------------------------------
@@ -66,11 +82,6 @@ def find_executable(command: str) -> str:
         if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
             return full_path
     return ""
-
-
-@register_command("exit")
-def exit_cmd(args: list[str]) -> str:
-    raise ExitShell()
 
 
 def main():
