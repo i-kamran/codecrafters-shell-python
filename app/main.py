@@ -36,8 +36,6 @@ def type_cmd(args: list[str]) -> str:
     if not args:
         return ""
     lines = []
-    path_env = os.environ.get("PATH", "")
-    paths = path_env.split(os.pathsep)
 
     for arg in args:
         if arg in COMMANDS:
@@ -91,8 +89,8 @@ def main():
         try:
             if handler := COMMANDS.get(command):
                 sys.stdout.write(handler(args))
-            elif cmd_path := find_executable(command):
-                subprocess.run([cmd_path] + args)
+            elif find_executable(command):
+                subprocess.run([command] + args)
             else:
                 sys.stdout.write(f"{command}: command not found\n")
         except ExitShell:
