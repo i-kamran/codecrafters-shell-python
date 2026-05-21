@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 from collections.abc import Callable
 
@@ -42,11 +43,8 @@ def type_cmd(args: list[str]) -> str:
         if arg in COMMANDS:
             lines.append(f"{arg} is a shell builtin")
             continue
-        for directory in paths:
-            full_path = os.path.join(directory, arg)
-            if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
-                lines.append(f"{arg} is {full_path}")
-                break 
+        if cmd_path := find_executable(arg):
+            lines.append(f"{arg} is {cmd_path}")
         else:
             lines.append(f"{arg}: not found")
 
@@ -57,6 +55,19 @@ class ExitShell(Exception):
     """Exception to signal the shell should close."""
 
     pass
+
+
+# --- Helper functions --------------------------------------------------------
+def find_executable(command: str) -> str:
+    paths_env = os.getenv("PATH", "")
+    if not paths_env:
+        return ""
+    paths = paths_env.split(os.pathsep)
+    for path in paths:
+        full_path = os.path.join(path, command)
+        if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
+            return full_path
+    return ""
 
 
 @register_command("exit")
@@ -80,6 +91,8 @@ def main():
         try:
             if handler := COMMANDS.get(command):
                 sys.stdout.write(handler(args))
+            elif cmd_path := find_executable(command):
+                subprocess.run([cmd_path] + args)
             else:
                 sys.stdout.write(f"{command}: command not found\n")
         except ExitShell:
