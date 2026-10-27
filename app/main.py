@@ -2,9 +2,17 @@ import os
 import subprocess
 import sys
 from collections.abc import Callable
+from enum import Enum, auto
 
 CommandFunc = Callable[[list[str]], str]
 COMMANDS: dict[str, CommandFunc] = {}
+
+
+class State(Enum):
+    NORMAL = auto()
+    IS_SINGLE_QUOTE = auto()
+    IS_DOUBLE_QUOTE = auto()
+    ESCAPE = auto()
 
 
 def register_command(name: str) -> Callable[[CommandFunc], CommandFunc]:
@@ -48,9 +56,9 @@ def cd(args: list[str]) -> str:
     if len(args) > 1:
         return f"cd: string not in pwd: {args[0]}\n"
     target_dir = args[0] if args else os.path.expanduser("~")
-    if target_dir.startswith("~"): 
+    if target_dir.startswith("~"):
         target_dir = os.path.expanduser(target_dir)
-        
+
     try:
         os.chdir(target_dir)
         return ""
@@ -84,6 +92,34 @@ def find_executable(command: str) -> str:
     return ""
 
 
+# Get the PATH string from the environment
+def parse_command(text: str) -> tuple[str, list[str]]:
+    tokens = []
+    current = []
+
+    state = State.NORMAL
+    prev_state = State.NORMAL
+    in_special_state = False
+
+    for char in text:
+        match state:
+            case State.NORMAL:
+                if char.isspace():
+                    tokens.append("".join(current))
+                    current = []
+                    # in_special_state = False
+                elif char == "'":
+                    state = State.IS_SINGLE_QUOTE
+                    in_special_state = True
+                elif char == '"':
+                    state = State.IS_DOUBLE_QUOTE
+                    in_special_state = True
+                elif char == "\\":
+                    state = State.ESCAPE
+
+    return (command, args)
+
+
 def main():
     while True:
         sys.stdout.write("$ ")
@@ -106,13 +142,6 @@ def main():
                 sys.stdout.write(f"{command}: command not found\n")
         except ExitShell:
             break
-
-
-# Get the PATH string from the environment
-def parse_command(arg: str) -> tuple[str, list[str]]:
-    args = arg.split()
-    command = args.pop(0)
-    return (command, args)
 
 
 if __name__ == "__main__":
